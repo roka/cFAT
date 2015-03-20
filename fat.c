@@ -112,12 +112,14 @@ int main()
 {
 	FILE *fptr = fopen("./fat.fs", "r"); ;
 	char buf[512];
-	uint32_t FATSz32; 
+	uint32_t FATSz32=0; 
 	fread(buf, 512, 1, fptr);
-	memcpy(&FATSz32, &(buf[36]), 4);
 
 	FAT_BS fatBS = initFAT_BS(buf);
-
+	if(fatBS.FATSz16 == 0)
+	{
+		memcpy(&FATSz32, &(buf[36]), 4);
+	}
 
 	printFAT_BS(fatBS);
 	printf("FATSz32=%d\n", FATSz32);
