@@ -19,6 +19,8 @@
 #define FAT16				2
 #define	FAT32				3
 
+#define DIRECTORY	0x10
+
 typedef struct _FAT_BS
 {
 	/* Boot Sector */
@@ -194,7 +196,8 @@ void listDirs(FAT_BS f, int type, FILE *fptr)
 				memcpy(&cluster, &(buf[i+26]), 2);
 				printf("cluster=%d	", cluster);
 				printf("0x%x\n", getClusterOffset(f, cluster));
-				listDir(f, fptr, cluster);	
+				if(buf[i+11] == DIRECTORY)
+					listDir(f, fptr, cluster);	
 				i+=32;
 			}
 		}
