@@ -206,7 +206,10 @@ void listDirs(FAT_BS f, int type, FILE *fptr)
 				printf("0x%x	", getClusterOffset(f, cluster));
 				printf("%d\n", getCluster(f, cluster));
 				if(buf[i+11] == DIRECTORY)
-					listDir(f, fptr, cluster);	
+				{
+					listDir(f, fptr, cluster);
+					printf("got dir!\n");
+				}
 				i+=32;
 			}
 		}
@@ -214,9 +217,14 @@ void listDirs(FAT_BS f, int type, FILE *fptr)
 	}
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-	FILE *fptr = fopen("./fat.fs", "r"); ;
+	if(argc == 1)
+	{
+		printf("Error: no input file\n");
+		return -1;
+	}
+	FILE *fptr = fopen(argv[1], "r"); ;
 	char buf[512];
 	uint32_t FATSz32=0; 
 	fread(buf, 512, 1, fptr);
