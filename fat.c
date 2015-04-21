@@ -129,15 +129,22 @@ __inline uint32_t firstDataSector(FAT_BS f)
 	return f.RsvdSecCnt + (f.NumFATs * f.FATSz16) + rootDirSector(f);
 }
 
+__inline uint32_t getCluster(FAT_BS f, uint32_t clusterNum)
+{
+	if(clusterNum < 3)
+		return f.RsvdSecCnt + (f.NumFATs * f.FATSz16);
+	else
+		return ((clusterNum - 2 ) * f.SecPerClus) + firstDataSector(f);
+}
+
 
 // first_sector_of_cluster = ((cluster - 2) * fat_boot->sectors_per_cluster) + first_data_sector;
 __inline uint32_t getClusterOffset(FAT_BS f, uint32_t clusterNum)
 {
-	//uint32_t first_data_sector = f.RsvdSecCnt + (f.NumFATs * f.FATSz16);
-	//printf("ASDF=%x\n", firstCluster(f) + (((3*f.SecPerClus) * f.BytsPerSec)*f.NumFATs));
-
-	//return (((clusterNum - 1) * (f.SecPerClus*f.BytsPerSec)) + firstCluster(f));
-	return ((((clusterNum -2 ) * f.SecPerClus) + firstDataSector(f)) * f.BytsPerSec);
+	if(clusterNum < 3)
+		return firstCluster(f);
+	else
+		return ((((clusterNum - 2 ) * f.SecPerClus) + firstDataSector(f)) * f.BytsPerSec);
 
 }
 
@@ -160,7 +167,8 @@ void listDir(FAT_BS f, FILE *fptr, uint32_t cluster)
 			printf("%.*s	", 11, filename);
 			memcpy(&cluster, &(buf[i+26]), 2);
 			printf("cluster=%d	", cluster);
-			printf("0x%x\n", getClusterOffset(f, cluster));
+			printf("0x%x	", getClusterOffset(f, cluster));
+			printf("%d\n", getCluster(f, cluster));
 			i+=32;
 		}
 	}
@@ -195,7 +203,8 @@ void listDirs(FAT_BS f, int type, FILE *fptr)
 				printf("%.*s	", 11, filename);
 				memcpy(&cluster, &(buf[i+26]), 2);
 				printf("cluster=%d	", cluster);
-				printf("0x%x\n", getClusterOffset(f, cluster));
+				printf("0x%x	", getClusterOffset(f, cluster));
+				printf("%d\n", getCluster(f, cluster));
 				if(buf[i+11] == DIRECTORY)
 					listDir(f, fptr, cluster);	
 				i+=32;
