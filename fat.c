@@ -19,6 +19,8 @@
 #define FAT16				2
 #define	FAT32				3
 
+#define DIRECTORY	0x10
+
 typedef struct _FAT_BS
 {
 	/* Boot Sector */
@@ -108,6 +110,110 @@ int getFATType(FAT_BS f, uint32_t FATSz32)
 	return 0;
 }
 
+__inline uint32_t firstCluster(FAT_BS f)
+{
+	return (f.RsvdSecCnt + (f.NumFATs * f.FATSz16)) * f.BytsPerSec; 
+}
+
+
+// root_dir_sectors = ((fat_boot->root_entry_count * 32) + (fat_boot->bytes_per_sector - 1)) / fat_boot->bytes_per_sector;
+__inline uint32_t rootDirSector(FAT_BS f)
+{
+	return ((f.RootEnt * 32) + (f.BytsPerSec -1)) / f.BytsPerSec;
+}
+
+// first_data_sector = fat_boot->reserved_sector_count + (fat_boot->table_count * fat_size) + root_dir_sectors;
+
+__inline uint32_t firstDataSector(FAT_BS f)
+{
+	return f.RsvdSecCnt + (f.NumFATs * f.FATSz16) + rootDirSector(f);
+}
+
+__inline uint32_t getCluster(FAT_BS f, uint32_t clusterNum)
+{
+	if(clusterNum < 3)
+		return f.RsvdSecCnt + (f.NumFATs * f.FATSz16);
+	else
+		return ((clusterNum - 2 ) * f.SecPerClus) + firstDataSector(f);
+}
+
+
+// first_sector_of_cluster = ((cluster - 2) * fat_boot->sectors_per_cluster) + first_data_sector;
+__inline uint32_t getClusterOffset(FAT_BS f, uint32_t clusterNum)
+{
+	if(clusterNum < 3)
+		return firstCluster(f);
+	else
+		return ((((clusterNum - 2 ) * f.SecPerClus) + firstDataSector(f)) * f.BytsPerSec);
+
+}
+
+void listDir(FAT_BS f, FILE *fptr, uint32_t cluster)
+{
+	char buf[512];
+	char filename[11]; 
+	uint32_t i=0;
+	
+	fseek(fptr, (getClusterOffset(f, cluster)), SEEK_SET);
+	fread(buf, 512, 1, fptr);
+	while(1)
+	{
+		memcpy(&filename, &(buf[i]), 11);
+		if(filename[0] == 0)
+			break;
+		else
+		{
+			printf("--");
+			printf("%.*s	", 11, filename);
+			memcpy(&cluster, &(buf[i+26]), 2);
+			printf("cluster=%d	", cluster);
+			printf("0x%x	", getClusterOffset(f, cluster));
+			printf("%d\n", getCluster(f, cluster));
+			i+=32;
+		}
+	}
+}
+
+void listDirs(FAT_BS f, int type, FILE *fptr)
+{
+	char buf[512]; 
+	char filename[11];
+	uint32_t i=0;
+	if(type == FAT32)
+	{
+	}
+	else // FAT12 or FAT16
+	{
+		uint32_t cluster_offset = firstCluster(f);
+		uint16_t cluster=0;
+		printf("%d\n", cluster_offset);
+		fseek(fptr, cluster_offset, SEEK_SET);
+		fread(buf, 512, 1, fptr);
+		/*memcpy(&filename, &(buf[0]), 11);
+		printf("%.*s\n", 11, filename);
+		memcpy(&filename, &(buf[32]), 11);
+		printf("%.*s\n", 11, filename);*/
+		while(1)
+		{
+			memcpy(&filename, &(buf[i]), 11);
+			if(filename[0] == 0)
+				break;
+			else
+			{
+				printf("%.*s	", 11, filename);
+				memcpy(&cluster, &(buf[i+26]), 2);
+				printf("cluster=%d	", cluster);
+				printf("0x%x	", getClusterOffset(f, cluster));
+				printf("%d\n", getCluster(f, cluster));
+				if(buf[i+11] == DIRECTORY)
+					listDir(f, fptr, cluster);	
+				i+=32;
+			}
+		}
+		
+	}
+}
+
 int main()
 {
 	FILE *fptr = fopen("./fat.fs", "r"); ;
@@ -135,5 +241,8 @@ int main()
 			printf("FAT32\n");
 			break;
 	}
+
+	listDirs(fatBS, FAT16, fptr);
+
 	return 0;
 }
